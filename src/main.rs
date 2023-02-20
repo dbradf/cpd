@@ -19,14 +19,55 @@ fn main() {
         }
     }
 
-    for (_, v) in lines.iter().filter(|&(_, v)| v.len() > 1) {
-        println!("Dup");
+    let dup_map = lines.iter().filter(|&(_, v)| v.len() > 1);
+    let mut file_map: HashMap<String, HashMap<usize, String>> = HashMap::new();
+
+    for (h, v) in dup_map {
         for l in v {
             let filename = &files[l.file];
-            println!("{}: line {}", filename, l.line);
+            if let Some(f) = file_map.get_mut(filename) {
+                f.insert(l.line, h.to_string());
+            } else {
+                let mut line_hash = HashMap::new();
+                line_hash.insert(l.line, h.to_string());
+                file_map.insert(filename.to_string(), line_hash);
+            }
         }
-        println!();
     }
+
+    for f in &files {
+        if let Some(locations) = file_map.get(f) {
+            let mut file_printed = false;
+            for (line, hash) in locations {
+                if locations.get(&(line + 1)).is_some() && locations.get(&(line + 2)).is_some() {
+                    let mut i = line + 2;
+                    while locations.get(&i).is_some() {
+                        i += 1;
+                    }
+                    if !file_printed {
+                        println!("{}:\n", f);
+                        file_printed = true;
+                    }
+                    println!("  {}-{}: {}", line, i, hash);
+                    // if let Some(matches) = lines.get(hash) {
+                    //     for x in matches {
+                    //         let filename = &files[x.file];
+                    //         println!(" - {}: {}", filename, x.line);
+                    //     }
+                    // }
+                }
+            }
+        }
+    }
+
+    // for (_, v) in lines.iter().filter(|&(_, v)| v.len() > 1) {
+    //     println!("Dup");
+    //     for l in v {
+    //         let filename = &files[l.file];
+    //         println!("{}: line {}", filename, l.line);
+    //     }
+    //     println!();
+    // }
 }
 
 fn hash_file(entry: DirEntry, files: &mut Vec<String>, lines: &mut HashMap<String, Vec<Location>>) {
