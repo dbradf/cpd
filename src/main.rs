@@ -89,6 +89,9 @@ fn hash_file(entry: DirEntry, files: &mut Vec<String>, lines: &mut HashMap<Strin
         .tuple_windows::<(_, _, _, _)>()
         .for_each(|((i, l0), (_, l1), (_, l2), (_, l3))| {
             let line = [l0, l1, l2, l3].map(|s| s.trim()).join("\n");
+            if line.len() < 10 {
+                return;
+            }
             let h = hash_line(&line);
             if let Some(list) = lines.get_mut(&h) {
                 list.push(Location {
