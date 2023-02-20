@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fs};
 
 use ignore::{DirEntry, Walk};
+use itertools::Itertools;
 use sha2::{Digest, Sha256};
 
 #[derive(Debug)]
@@ -39,7 +40,8 @@ fn main() {
         if let Some(locations) = file_map.get(f) {
             let mut file_printed = false;
             for (line, hash) in locations {
-                if locations.get(&(line + 1)).is_some() && locations.get(&(line + 2)).is_some() {
+                // if locations.get(&(line + 1)).is_some() && locations.get(&(line + 2)).is_some() {
+                if true {
                     let mut i = line + 2;
                     while locations.get(&i).is_some() {
                         i += 1;
@@ -49,12 +51,12 @@ fn main() {
                         file_printed = true;
                     }
                     println!("  {}-{}: {}", line, i, hash);
-                    // if let Some(matches) = lines.get(hash) {
-                    //     for x in matches {
-                    //         let filename = &files[x.file];
-                    //         println!(" - {}: {}", filename, x.line);
-                    //     }
-                    // }
+                    if let Some(matches) = lines.get(hash) {
+                        for x in matches {
+                            let filename = &files[x.file];
+                            println!(" - {}: {}", filename, x.line);
+                        }
+                    }
                 }
             }
         }
@@ -84,8 +86,10 @@ fn hash_file(entry: DirEntry, files: &mut Vec<String>, lines: &mut HashMap<Strin
         }
         .lines()
         .enumerate()
-        .for_each(|(i, l)| {
-            let h = hash_line(l);
+        .tuple_windows::<(_, _, _, _)>()
+        .for_each(|((i, l0), (_, l1), (_, l2), (_, l3))| {
+            let line = [l0, l1, l2, l3].map(|s| s.trim()).join("\n");
+            let h = hash_line(&line);
             if let Some(list) = lines.get_mut(&h) {
                 list.push(Location {
                     file: file_index,
