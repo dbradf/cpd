@@ -2,31 +2,68 @@ use std::{
     cmp::{max, min},
     collections::HashMap,
     path::Path,
+    time::Instant,
 };
+
+use itertools::Itertools;
 
 use crate::hash_file::{build_n_gram_index, Location};
 
 mod hash_file;
 
+#[derive(Debug)]
+struct CpdMatch {
+    start: usize,
+    end: usize,
+    matching_file: String,
+    match_start: usize,
+    match_end: usize,
+}
+
+#[derive(Debug)]
+struct CpdReport {
+    filename: String,
+    matches: Vec<CpdMatch>,
+}
+
 fn main() {
     let cpd_index = build_n_gram_index(Path::new("."));
     let file_map = cpd_index.build_dup_map();
 
-    cpd_index.files.iter().enumerate().for_each(|(i, f)| {
-        let mut matches = matches_for_file(i, &file_map, &cpd_index.lines);
-        if !matches.is_empty() {
-            println!("\n{}:\n", f);
-
-            matches.sort_by(|a, b| a.start.partial_cmp(&b.start).unwrap());
-            for m in matches {
-                let filename = &cpd_index.files[m.file];
-                println!(
-                    "- {} - {} :{}: {} - {}",
-                    m.start, m.end, filename, m.remote_start, m.remote_end
-                );
+    let start = Instant::now();
+    let report: Vec<CpdReport> = cpd_index
+        .files
+        .iter()
+        .enumerate()
+        .filter_map(|(i, f)| {
+            let mut matches = matches_for_file(i, &file_map, &cpd_index.lines);
+            if !matches.is_empty() {
+                matches.sort_by(|a, b| a.start.partial_cmp(&b.start).unwrap());
+                Some(CpdReport {
+                    filename: f.to_string(),
+                    matches: matches
+                        .iter()
+                        .map(|m| {
+                            let filename = &cpd_index.files[m.file];
+                            CpdMatch {
+                                start: m.start,
+                                end: m.end,
+                                matching_file: filename.to_string(),
+                                match_start: m.remote_start,
+                                match_end: m.remote_end,
+                            }
+                        })
+                        .collect_vec(),
+                })
+            } else {
+                None
             }
-        }
-    });
+        })
+        .collect();
+    let end = Instant::now();
+
+    println!("report time: {}ms", end.duration_since(start).as_millis());
+    println!("{:?}", &report);
 }
 
 #[derive(Debug)]
