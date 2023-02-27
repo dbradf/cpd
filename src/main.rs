@@ -33,23 +33,22 @@ fn main() {
     );
 
     let dup_map = lines.iter().filter(|&(_, v)| v.len() > 1);
-    let mut file_map: HashMap<String, HashMap<usize, String>> = HashMap::new();
+    let mut file_map: HashMap<usize, HashMap<usize, String>> = HashMap::new();
 
     for (h, v) in dup_map {
         for l in v {
-            let filename = &files[l.file];
-            if let Some(f) = file_map.get_mut(filename) {
+            if let Some(f) = file_map.get_mut(&l.file) {
                 f.insert(l.line, h.to_string());
             } else {
                 let mut line_hash = HashMap::new();
                 line_hash.insert(l.line, h.to_string());
-                file_map.insert(filename.to_string(), line_hash);
+                file_map.insert(l.file, line_hash);
             }
         }
     }
 
     files.iter().enumerate().for_each(|(i, f)| {
-        let mut matches = matches_for_file(f, i, &file_map, &lines);
+        let mut matches = matches_for_file(i, &file_map, &lines);
         if !matches.is_empty() {
             println!("\n{}:\n", f);
 
@@ -99,13 +98,12 @@ impl CopyPasteMatch {
 }
 
 fn matches_for_file(
-    f: &str,
     file_index: usize,
-    file_map: &HashMap<String, HashMap<usize, String>>,
+    file_map: &HashMap<usize, HashMap<usize, String>>,
     lines: &HashMap<String, Vec<Location>>,
 ) -> Vec<CopyPasteMatch> {
     let mut match_list: Vec<CopyPasteMatch> = vec![];
-    if let Some(locations) = file_map.get(f) {
+    if let Some(locations) = file_map.get(&file_index) {
         for (line, hash) in locations {
             if let Some(matches) = lines.get(hash) {
                 for x in matches {
