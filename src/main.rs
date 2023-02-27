@@ -1,60 +1,25 @@
 use std::{
     cmp::{max, min},
     collections::HashMap,
-    fs,
-    time::Instant,
+    path::Path,
 };
 
-use ignore::{DirEntry, Walk};
-use itertools::Itertools;
-use sha2::{Digest, Sha256};
+use crate::hash_file::{build_n_gram_index, Location};
 
-#[derive(Debug, Clone)]
-struct Location {
-    file: usize,
-    line: usize,
-}
+mod hash_file;
 
 fn main() {
-    let mut files = vec![];
-    let mut lines: HashMap<String, Vec<Location>> = HashMap::new();
-    let start = Instant::now();
-    for result in Walk::new(".") {
-        match result {
-            Ok(entry) => hash_file(entry, &mut files, &mut lines),
-            Err(err) => eprintln!("ERROR: {}", err),
-        }
-    }
+    let cpd_index = build_n_gram_index(Path::new("."));
+    let file_map = cpd_index.build_dup_map();
 
-    let end = Instant::now();
-    println!(
-        "build map time: {}ms",
-        end.duration_since(start).as_millis()
-    );
-
-    let dup_map = lines.iter().filter(|&(_, v)| v.len() > 1);
-    let mut file_map: HashMap<usize, HashMap<usize, String>> = HashMap::new();
-
-    for (h, v) in dup_map {
-        for l in v {
-            if let Some(f) = file_map.get_mut(&l.file) {
-                f.insert(l.line, h.to_string());
-            } else {
-                let mut line_hash = HashMap::new();
-                line_hash.insert(l.line, h.to_string());
-                file_map.insert(l.file, line_hash);
-            }
-        }
-    }
-
-    files.iter().enumerate().for_each(|(i, f)| {
-        let mut matches = matches_for_file(i, &file_map, &lines);
+    cpd_index.files.iter().enumerate().for_each(|(i, f)| {
+        let mut matches = matches_for_file(i, &file_map, &cpd_index.lines);
         if !matches.is_empty() {
             println!("\n{}:\n", f);
 
             matches.sort_by(|a, b| a.start.partial_cmp(&b.start).unwrap());
             for m in matches {
-                let filename = &files[m.file];
+                let filename = &cpd_index.files[m.file];
                 println!(
                     "- {} - {} :{}: {} - {}",
                     m.start, m.end, filename, m.remote_start, m.remote_end
@@ -134,51 +99,4 @@ fn matches_for_file(
         .into_iter()
         .filter(|m| !m.is_duplicate(file_index))
         .collect()
-}
-
-fn hash_file(entry: DirEntry, files: &mut Vec<String>, lines: &mut HashMap<String, Vec<Location>>) {
-    if entry.file_type().unwrap().is_dir() {
-        return;
-    }
-    files.push(entry.path().display().to_string());
-    let file_index = files.len() - 1;
-    let contents = fs::read_to_string(entry.path());
-    if contents.is_ok() {
-        match contents {
-            Ok(t) => t,
-            Err(_e) => return,
-        }
-        .lines()
-        .enumerate()
-        .tuple_windows::<(_, _, _, _)>()
-        .for_each(|((i, l0), (_, l1), (_, l2), (_, l3))| {
-            let line = [l0, l1, l2, l3].map(|s| s.trim()).join("\n");
-            if line.len() < 15 {
-                return;
-            }
-            let h = hash_line(&line);
-            if let Some(list) = lines.get_mut(&h) {
-                list.push(Location {
-                    file: file_index,
-                    line: i + 1,
-                })
-            } else {
-                lines.insert(
-                    h,
-                    vec![Location {
-                        file: file_index,
-                        line: i + 1,
-                    }],
-                );
-            }
-        });
-    }
-}
-
-fn hash_line(line: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(line.trim());
-    let result = hasher.finalize();
-
-    hex::encode(result)
 }
