@@ -1,11 +1,13 @@
+use rayon::prelude::*;
 use std::{
     cmp::{max, min},
     collections::HashMap,
-    path::Path,
+    fs,
+    path::PathBuf,
     time::Instant,
 };
 
-use itertools::Itertools;
+use clap::Parser;
 use serde::Serialize;
 
 use crate::hash_file::{build_n_gram_index, Location};
@@ -13,48 +15,63 @@ use crate::hash_file::{build_n_gram_index, Location};
 mod hash_file;
 
 #[derive(Debug, Serialize)]
-struct CpdMatch {
+struct CpdMatch<'a> {
     start: usize,
     end: usize,
-    matching_file: String,
+    matching_file: &'a str,
     match_start: usize,
     match_end: usize,
 }
 
 #[derive(Debug, Serialize)]
-struct CpdReport {
-    filename: String,
-    matches: Vec<CpdMatch>,
+struct CpdReport<'a> {
+    filename: &'a str,
+    matches: Vec<CpdMatch<'a>>,
+}
+
+/// A command to detect copy/pasted code.
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Opts {
+    /// File to write report to.
+    #[arg(long)]
+    report_file: Option<PathBuf>,
+
+    /// Base directory to analyze from.
+    #[arg(long, default_value = ".")]
+    base_dir: PathBuf,
 }
 
 fn main() {
-    let cpd_index = build_n_gram_index(Path::new("."));
+    let opts = Opts::parse();
+
+    let cpd_index = build_n_gram_index(&opts.base_dir);
     let file_map = cpd_index.build_dup_map();
 
     let start = Instant::now();
     let report: Vec<CpdReport> = cpd_index
         .files
-        .iter()
+        .par_iter()
         .enumerate()
         .filter_map(|(i, f)| {
             let mut matches = matches_for_file(i, &file_map, &cpd_index.lines);
             if !matches.is_empty() {
                 matches.sort_by(|a, b| a.start.partial_cmp(&b.start).unwrap());
                 Some(CpdReport {
-                    filename: f.to_string(),
+                    filename: f,
                     matches: matches
-                        .iter()
+                        .par_iter()
                         .map(|m| {
                             let filename = &cpd_index.files[m.file];
                             CpdMatch {
                                 start: m.start,
                                 end: m.end,
-                                matching_file: filename.to_string(),
+                                matching_file: filename,
                                 match_start: m.remote_start,
                                 match_end: m.remote_end,
                             }
                         })
-                        .collect_vec(),
+                        .collect(),
                 })
             } else {
                 None
@@ -65,7 +82,11 @@ fn main() {
 
     println!("report time: {}ms", end.duration_since(start).as_millis());
     let json_report = serde_json::to_string_pretty(&report).unwrap();
-    println!("{}", &json_report);
+    if let Some(report_file) = opts.report_file {
+        fs::write(report_file, json_report).expect("Error writing to file");
+    } else {
+        println!("{}", &json_report);
+    }
 }
 
 #[derive(Debug)]
