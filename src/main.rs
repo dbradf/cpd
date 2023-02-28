@@ -6,12 +6,13 @@ use std::{
 };
 
 use itertools::Itertools;
+use serde::Serialize;
 
 use crate::hash_file::{build_n_gram_index, Location};
 
 mod hash_file;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 struct CpdMatch {
     start: usize,
     end: usize,
@@ -20,7 +21,7 @@ struct CpdMatch {
     match_end: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 struct CpdReport {
     filename: String,
     matches: Vec<CpdMatch>,
@@ -63,7 +64,8 @@ fn main() {
     let end = Instant::now();
 
     println!("report time: {}ms", end.duration_since(start).as_millis());
-    println!("{:?}", &report);
+    let json_report = serde_json::to_string_pretty(&report).unwrap();
+    println!("{}", &json_report);
 }
 
 #[derive(Debug)]
