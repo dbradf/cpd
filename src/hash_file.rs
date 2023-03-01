@@ -38,13 +38,13 @@ impl CpdIndex {
     }
 }
 
-pub fn build_n_gram_index(path: &Path) -> CpdIndex {
+pub fn build_n_gram_index(path: &Path, min_lines: usize) -> CpdIndex {
     let mut files = vec![];
     let mut lines: HashMap<String, Vec<Location>> = HashMap::new();
     let start = Instant::now();
     for result in Walk::new(path) {
         match result {
-            Ok(entry) => hash_file(entry, &mut files, &mut lines),
+            Ok(entry) => hash_file(entry, &mut files, &mut lines, min_lines),
             Err(err) => eprintln!("ERROR: {}", err),
         }
     }
@@ -61,6 +61,7 @@ pub fn hash_file(
     entry: DirEntry,
     files: &mut Vec<String>,
     lines: &mut HashMap<String, Vec<Location>>,
+    min_lines: usize,
 ) {
     if entry.file_type().unwrap().is_dir() {
         return;
@@ -75,9 +76,11 @@ pub fn hash_file(
         }
         .lines()
         .enumerate()
-        .tuple_windows::<(_, _, _, _)>()
-        .for_each(|((i, l0), (_, l1), (_, l2), (_, l3))| {
-            let line = [l0, l1, l2, l3].map(|s| s.trim()).join("\n");
+        .collect::<Vec<_>>()
+        .windows(min_lines)
+        .for_each(|window| {
+            let start_line = window.first().unwrap().0;
+            let line = window.iter().map(|l| l.1.trim()).join("\n");
             if line.len() < 15 {
                 return;
             }
@@ -85,14 +88,14 @@ pub fn hash_file(
             if let Some(list) = lines.get_mut(&h) {
                 list.push(Location {
                     file: file_index,
-                    line: i + 1,
+                    line: start_line + 1,
                 })
             } else {
                 lines.insert(
                     h,
                     vec![Location {
                         file: file_index,
-                        line: i + 1,
+                        line: start_line + 1,
                     }],
                 );
             }

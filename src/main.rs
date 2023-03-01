@@ -40,12 +40,16 @@ struct Opts {
     /// Base directory to analyze from.
     #[arg(long, default_value = ".")]
     base_dir: PathBuf,
+
+    /// Minimum number of lines to detect a copy.
+    #[arg(long, default_value_t = 4)]
+    min_lines: usize,
 }
 
 fn main() {
     let opts = Opts::parse();
 
-    let cpd_index = build_n_gram_index(&opts.base_dir);
+    let cpd_index = build_n_gram_index(&opts.base_dir, opts.min_lines);
     let file_map = cpd_index.build_dup_map();
 
     let start = Instant::now();
@@ -54,7 +58,7 @@ fn main() {
         .par_iter()
         .enumerate()
         .filter_map(|(i, f)| {
-            let mut matches = matches_for_file(i, &file_map, &cpd_index.lines);
+            let mut matches = matches_for_file(i, &file_map, &cpd_index.lines, opts.min_lines);
             if !matches.is_empty() {
                 matches.sort_by(|a, b| a.start.partial_cmp(&b.start).unwrap());
                 Some(CpdReport {
@@ -126,6 +130,7 @@ fn matches_for_file(
     file_index: usize,
     file_map: &HashMap<usize, HashMap<usize, String>>,
     lines: &HashMap<String, Vec<Location>>,
+    min_lines: usize,
 ) -> Vec<CopyPasteMatch> {
     let mut match_list: Vec<CopyPasteMatch> = vec![];
     if let Some(locations) = file_map.get(&file_index) {
@@ -133,11 +138,11 @@ fn matches_for_file(
             if let Some(matches) = lines.get(hash) {
                 for x in matches {
                     let start = *line;
-                    let end = start + 4;
+                    let end = start + min_lines;
                     let mut found = false;
                     for m in &mut match_list {
                         if m.is_overlapping(start, end, x.file) {
-                            m.expand(start, end, x.line, x.line + 4);
+                            m.expand(start, end, x.line, x.line + min_lines);
                             found = true;
                             break;
                         }
@@ -148,7 +153,7 @@ fn matches_for_file(
                             end,
                             file: x.file,
                             remote_start: x.line,
-                            remote_end: x.line + 4,
+                            remote_end: x.line + min_lines,
                         })
                     }
                 }
