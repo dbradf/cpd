@@ -10,8 +10,12 @@ use std::{
 use clap::Parser;
 use serde::Serialize;
 
-use crate::hash_file::{build_n_gram_index, Location};
+use crate::{
+    config::CpdConfig,
+    hash_file::{build_n_gram_index, Location},
+};
 
+mod config;
 mod hash_file;
 
 #[derive(Debug, Serialize)]
@@ -41,15 +45,21 @@ struct Opts {
     #[arg(long, default_value = ".")]
     base_dir: PathBuf,
 
-    /// Minimum number of lines to detect a copy.
-    #[arg(long, default_value_t = 4)]
-    min_lines: usize,
+    /// Path to configuration file.
+    #[arg(long)]
+    config_file: Option<PathBuf>,
 }
 
 fn main() {
     let opts = Opts::parse();
 
-    let cpd_index = build_n_gram_index(&opts.base_dir, opts.min_lines);
+    let config = if let Some(config_file) = &opts.config_file {
+        CpdConfig::from_json_file(config_file)
+    } else {
+        CpdConfig::default()
+    };
+
+    let cpd_index = build_n_gram_index(&opts.base_dir, config.get_min_lines());
     let file_map = cpd_index.build_dup_map();
 
     let start = Instant::now();
@@ -58,7 +68,8 @@ fn main() {
         .par_iter()
         .enumerate()
         .filter_map(|(i, f)| {
-            let mut matches = matches_for_file(i, &file_map, &cpd_index.lines, opts.min_lines);
+            let mut matches =
+                matches_for_file(i, &file_map, &cpd_index.lines, config.get_min_lines());
             if !matches.is_empty() {
                 matches.sort_by(|a, b| a.start.partial_cmp(&b.start).unwrap());
                 Some(CpdReport {
