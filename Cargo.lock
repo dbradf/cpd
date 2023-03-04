@@ -96,6 +96,7 @@ name = "cpd"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "globset",
  "hex",
  "ignore",
  "itertools",

@@ -4,6 +4,8 @@ use ignore::{DirEntry, Walk};
 use itertools::Itertools;
 use sha2::{Digest, Sha256};
 
+use crate::config::CpdConfig;
+
 #[derive(Debug, Clone)]
 pub struct Location {
     pub file: usize,
@@ -38,13 +40,13 @@ impl CpdIndex {
     }
 }
 
-pub fn build_n_gram_index(path: &Path, min_lines: usize) -> CpdIndex {
+pub fn build_n_gram_index(path: &Path, config: &CpdConfig) -> CpdIndex {
     let mut files = vec![];
     let mut lines: HashMap<String, Vec<Location>> = HashMap::new();
     let start = Instant::now();
     for result in Walk::new(path) {
         match result {
-            Ok(entry) => hash_file(entry, &mut files, &mut lines, min_lines),
+            Ok(entry) => hash_file(entry, &mut files, &mut lines, config),
             Err(err) => eprintln!("ERROR: {}", err),
         }
     }
@@ -61,12 +63,19 @@ pub fn hash_file(
     entry: DirEntry,
     files: &mut Vec<String>,
     lines: &mut HashMap<String, Vec<Location>>,
-    min_lines: usize,
+    config: &CpdConfig,
 ) {
     if entry.file_type().unwrap().is_dir() {
         return;
     }
-    files.push(entry.path().display().to_string());
+
+    let file_path = entry.path();
+    if config.should_file_be_ignored(file_path) {
+        return;
+    }
+
+    let min_lines = config.get_min_lines();
+    files.push(file_path.display().to_string());
     let file_index = files.len() - 1;
     let contents = fs::read_to_string(entry.path());
     if contents.is_ok() {

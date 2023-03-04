@@ -59,7 +59,7 @@ fn main() {
         CpdConfig::default()
     };
 
-    let cpd_index = build_n_gram_index(&opts.base_dir, config.get_min_lines());
+    let cpd_index = build_n_gram_index(&opts.base_dir, &config);
     let file_map = cpd_index.build_dup_map();
 
     let start = Instant::now();
