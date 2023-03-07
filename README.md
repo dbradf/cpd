@@ -28,8 +28,8 @@ It takes the following values:
 
 ```json
 {
-    min_lines: 8,
-    ignored_globs: [
+    "min_lines": 8,
+    "ignored_globs": [
         "**/package.json",
         "**/*.lock"
     ]
