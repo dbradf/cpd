@@ -59,8 +59,7 @@ fn main() {
     let start = Instant::now();
     let report: Vec<CpdReport> = cpd_index
         .files
-        // .par_iter()
-        .iter()
+        .par_iter()
         .enumerate()
         .filter_map(|(i, f)| {
             let mut matches =
