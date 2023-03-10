@@ -75,6 +75,7 @@ pub fn hash_file(
     }
 
     let min_lines = config.get_min_lines();
+    let min_characters = config.get_min_characters();
     files.push(file_path.display().to_string());
     let file_index = files.len() - 1;
     let contents = fs::read_to_string(entry.path());
@@ -90,7 +91,7 @@ pub fn hash_file(
         .for_each(|window| {
             let start_line = window.first().unwrap().0;
             let line = window.iter().map(|l| l.1.trim()).join("\n");
-            if line.len() < 15 {
+            if line.len() < min_characters {
                 return;
             }
             let h = hash_line(&line);

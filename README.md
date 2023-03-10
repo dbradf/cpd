@@ -19,6 +19,21 @@ The big challenge with this (and other copy/paste detection tools) is dealing
 with false positives. There are a lot of patterns is code that tend to get
 repeated frequently.
 
+There are a few ways implemented to help reduce the number of false positives:
+
+* Set a minimum number of lines. The higher the minimum number of lines required
+  to consider a match the fewer matches there will be and the fewer false
+  positives will show up.
+
+* Set a minimum number of characters per line. In languages with deeply nested
+  structures, it can be comment to have several consecutive lines with `}`, by
+  forcing lines to have a minimum average number of characters, we avoid those
+  type of lines causing false positives.
+
+* Filter out any generated files with an ignore. Certain types of files tend
+  to have a lot of duplication (like generated files). A ignored glob can
+  skip these types of files when doing analysis.
+
 ## Configuration
 
 A configuration file can be provided to customize how the detection is performed.
@@ -29,6 +44,7 @@ It takes the following values:
 ```json
 {
     "min_lines": 8,
+    "min_characters_per_line": 4,
     "ignored_globs": [
         "**/package.json",
         "**/*.lock"
@@ -37,6 +53,8 @@ It takes the following values:
 ```
 
 * **min_lines**: Minimum number of lines to consider a block of lines a duplicate.
+* **min_characters_per_line**: Minimum number of characters the average consecutive
+  line should contain to consider a block of lines a duplicate.
 * **ignored_globs**: List of file globs that should be ignored when performing analysis.
 
 ## Usage

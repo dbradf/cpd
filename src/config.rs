@@ -4,10 +4,12 @@ use globset::{Glob, GlobSet, GlobSetBuilder};
 use serde::Deserialize;
 
 const DEFAULT_MIN_LINES: usize = 4;
+const DEFAULT_MIN_CHARACTERS: usize = 4;
 
 #[derive(Debug, Deserialize, Default)]
 struct CpdConfigContents {
     pub min_lines: Option<usize>,
+    pub min_characters_pre_line: Option<usize>,
     pub ignored_globs: Option<Vec<String>>,
 }
 
@@ -43,6 +45,14 @@ impl CpdConfig {
 
     pub fn get_min_lines(&self) -> usize {
         self.contents.min_lines.unwrap_or(DEFAULT_MIN_LINES)
+    }
+
+    pub fn get_min_characters(&self) -> usize {
+        self.get_min_lines()
+            * self
+                .contents
+                .min_characters_pre_line
+                .unwrap_or(DEFAULT_MIN_CHARACTERS)
     }
 
     pub fn should_file_be_ignored(&self, file: &Path) -> bool {
