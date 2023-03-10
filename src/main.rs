@@ -1,11 +1,5 @@
 use rayon::prelude::*;
-use std::{
-    cmp::{max, min},
-    collections::HashMap,
-    fs,
-    path::PathBuf,
-    time::Instant,
-};
+use std::{collections::HashMap, fs, path::PathBuf, time::Instant};
 
 use clap::Parser;
 use serde::Serialize;
@@ -65,7 +59,8 @@ fn main() {
     let start = Instant::now();
     let report: Vec<CpdReport> = cpd_index
         .files
-        .par_iter()
+        // .par_iter()
+        .iter()
         .enumerate()
         .filter_map(|(i, f)| {
             let mut matches =
@@ -126,14 +121,20 @@ impl CopyPasteMatch {
     }
 
     fn is_duplicate(&self, file: usize) -> bool {
-        file == self.file && self.start == self.remote_start && self.end == self.remote_end
+        self.is_overlapping(self.remote_start, self.remote_end, file)
     }
 
-    fn expand(&mut self, start: usize, end: usize, remote_start: usize, remote_end: usize) {
-        self.start = min(self.start, start);
-        self.end = max(self.end, end);
-        self.remote_start = min(self.remote_start, remote_start);
-        self.remote_end = max(self.remote_end, remote_end);
+    fn expand(&mut self, start: usize, end: usize) {
+        if start < self.start {
+            let diff = self.start - start;
+            self.start = start;
+            self.remote_start -= diff;
+        }
+        if end > self.end {
+            let diff = end - self.end;
+            self.end = end;
+            self.remote_end += diff;
+        }
     }
 }
 
@@ -147,24 +148,24 @@ fn matches_for_file(
     if let Some(locations) = file_map.get(&file_index) {
         for (line, hash) in locations {
             if let Some(matches) = lines.get(hash) {
-                for x in matches {
-                    let start = *line;
-                    let end = start + min_lines;
+                for remote in matches {
+                    let local_start = *line;
+                    let local_end = local_start + min_lines;
                     let mut found = false;
                     for m in &mut match_list {
-                        if m.is_overlapping(start, end, x.file) {
-                            m.expand(start, end, x.line, x.line + min_lines);
+                        if m.is_overlapping(local_start, local_end, remote.file) {
+                            m.expand(local_start, local_end);
                             found = true;
                             break;
                         }
                     }
                     if !found {
                         match_list.push(CopyPasteMatch {
-                            start,
-                            end,
-                            file: x.file,
-                            remote_start: x.line,
-                            remote_end: x.line + min_lines,
+                            start: local_start,
+                            end: local_end,
+                            file: remote.file,
+                            remote_start: remote.line,
+                            remote_end: remote.line + min_lines,
                         })
                     }
                 }
