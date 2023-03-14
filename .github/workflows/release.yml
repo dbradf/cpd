@@ -1,8 +1,8 @@
 name: Release
-on: 
+on:
   push:
-    tags: 
-      - '*'
+    tags:
+      - "*"
 
 jobs:
   build_artifacts:
@@ -10,10 +10,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        name: [
-          linux,
-          macos,
-        ]
+        name: [linux, macos]
 
         include:
           - name: linux
@@ -27,12 +24,11 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Setup toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
           toolchain: stable
 
       - name: Build
@@ -42,7 +38,7 @@ jobs:
         run: mv target/release/cpd target/release/${{ matrix.asset_name }}
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.asset_name }}
           path: ${{ matrix.artifact_name }}
@@ -52,14 +48,13 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Setup toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
           toolchain: stable
-          target: aarch64-apple-darwin
+          targets: aarch64-apple-darwin
 
       - name: Build
         run: cargo build --release --locked --target aarch64-apple-darwin
@@ -68,7 +63,7 @@ jobs:
         run: mv target/aarch64-apple-darwin/release/cpd target/release/cpd-macos-m1
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: cpd-macos-m1
           path: target/release/cpd-macos-m1
