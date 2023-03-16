@@ -4,6 +4,9 @@ on:
     tags:
       - "*"
 
+permissions:
+  contents: write
+
 jobs:
   build_artifacts:
     name: Build artifacts for ${{ matrix.os }}
